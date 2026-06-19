@@ -204,11 +204,38 @@ export interface AdminSection {
   confidence: Confidence;
 }
 
+// ── Safety / geopolitical risk (PROJECT_SPEC §6) ────────────────────────────
+
+/** Mirrors government advisory tiers (e.g. US State Dept Levels 1–4). */
+export type SafetyLevel =
+  | "normal"
+  | "caution"
+  | "reconsider"
+  | "do_not_travel";
+
+/**
+ * Safety card (§6) — the strongest collapse case. `normal` shows one grey line;
+ * higher levels expand into a real section. Source is always cited.
+ */
+export interface SafetySection {
+  kind: "safety";
+  status: "ok" | "unavailable";
+  level: SafetyLevel;
+  /** Tone scales to the level. */
+  headline: string;
+  /** Populated only when level > normal. */
+  detail?: string;
+  /** Always cited; name is the issuing authority (e.g. "UK FCDO"). */
+  source: SectionSource;
+  confidence: Confidence;
+}
+
 /** The (growing) briefing payload returned by /api/briefing. */
 export interface Briefing {
   place: ResolvedPlace | null;
   /** Events first — the differentiator, often most decision-relevant (§9.3). */
   events: EventsSection;
   weather: WeatherSection;
+  safety: SafetySection;
   admin: AdminSection;
 }

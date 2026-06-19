@@ -10,6 +10,7 @@ import { type TripRequest, summarizeTrip } from "@/lib/trip";
 import type { Briefing } from "@/lib/sections";
 import { WeatherCard } from "@/components/cards/WeatherCard";
 import { EventsCard } from "@/components/cards/EventsCard";
+import { SafetyCard } from "@/components/cards/SafetyCard";
 import { AdminCard } from "@/components/cards/AdminCard";
 
 export function TripForm() {
@@ -147,6 +148,7 @@ export function TripForm() {
           <>
             <EventsCard section={briefing.events} />
             <WeatherCard section={briefing.weather} />
+            <SafetyCard section={briefing.safety} />
             <AdminCard section={briefing.admin} />
           </>
         )}
