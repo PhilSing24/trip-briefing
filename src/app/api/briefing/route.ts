@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { TripRequest } from "@/lib/trip";
 import type { Briefing } from "@/lib/sections";
 import { geocode, getWeather, weatherUnavailable } from "@/lib/weather";
+import { buildEventsSection, eventsUnavailable } from "@/lib/events-llm";
 
 /**
  * The single backend entry point (PROJECT_SPEC §8). For this slice it runs one
@@ -25,16 +26,35 @@ export async function POST(req: Request) {
 
   const place = await geocode(body.destination).catch(() => null);
 
-  const weather = place
-    ? await getWeather(place, body.when).catch((e) =>
-        weatherUnavailable(
-          e instanceof Error ? e.message : "Weather service is unavailable.",
-        ),
-      )
-    : weatherUnavailable(
-        `Couldn't find "${body.destination}". Try a more specific place name.`,
-      );
+  if (!place) {
+    const notFound = `Couldn't find "${body.destination}". Try a more specific place name.`;
+    const briefing: Briefing = {
+      place: null,
+      events: eventsUnavailable(notFound),
+      weather: weatherUnavailable(notFound),
+    };
+    return NextResponse.json({ briefing });
+  }
 
-  const briefing: Briefing = { place, weather };
+  // Run the tools in parallel; each degrades gracefully on its own.
+  const [events, weather] = await Promise.all([
+    buildEventsSection({
+      place,
+      when: body.when,
+      party: body.party,
+      notes: body.notes ?? "",
+    }).catch((e) =>
+      eventsUnavailable(
+        e instanceof Error ? e.message : "Events service is unavailable.",
+      ),
+    ),
+    getWeather(place, body.when).catch((e) =>
+      weatherUnavailable(
+        e instanceof Error ? e.message : "Weather service is unavailable.",
+      ),
+    ),
+  ]);
+
+  const briefing: Briefing = { place, events, weather };
   return NextResponse.json({ briefing });
 }

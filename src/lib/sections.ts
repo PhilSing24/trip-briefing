@@ -6,6 +6,8 @@
  * (mode, confidence, status) live in the data from day one.
  */
 
+import type { DateRange } from "@/lib/trip";
+
 /** Uniform confidence signal across cards. */
 export type Confidence = "high" | "moderate" | "low";
 
@@ -52,8 +54,122 @@ export interface ResolvedPlace {
   timezone?: string;
 }
 
+// ── Events + access chain (PROJECT_SPEC §5) ────────────────────────────────
+
+/**
+ * The shared "near-mirror" vocabulary used by BOTH an event's blast surface and
+ * an access-chain link's vulnerability profile, so the match is a plain set
+ * intersection (§5c), not fuzzy reasoning.
+ *
+ * NOTE (spec reconciliation): §5b lists `blast_surface` with a different word
+ * list (airport · roads · ferries_sea · …), but §5c's worked example and §5a's
+ * Capri table both intersect on THIS vocabulary (e.g. a regatta's `sea_traffic`
+ * hits the ferry link whose profile contains `sea_traffic`). We unify on the
+ * vulnerability vocabulary so the canonical example actually set-intersects.
+ * Flagged for confirmation.
+ */
+export type VulnerabilityTag =
+  | "strikes"
+  | "crowd_surge"
+  | "road_closure"
+  | "sea_traffic"
+  | "weather_sensitive"
+  | "capacity_peak"
+  | "security_ops"
+  | "price_surge";
+
+/** Where a link sits on the traveller's access chain (§5a). */
+export type AccessChainLinkType =
+  | "airport"
+  | "sea_port"
+  | "ground_transfer"
+  | "ferry_crossing"
+  | "local_transport"
+  | "the_destination_itself";
+
+/** One link in how a traveller physically reaches/moves around the destination. */
+export interface AccessChainLink {
+  name: string;
+  type: AccessChainLinkType;
+  vulnerabilityProfile: VulnerabilityTag[];
+  /** The chain is LLM-generated and confidence-flagged (§5a). */
+  confidence: Confidence;
+}
+
+export type EventType =
+  | "sport"
+  | "festival"
+  | "religious"
+  | "cultural"
+  | "political"
+  | "disruption"
+  | "weather";
+
+export type EventTiming = "travel_day" | "leisure_day" | "adjacent";
+
+/** Four levels (§5b). `context_only` = out-of-window but worth noting. */
+export type EventSeverity =
+  | "disruptive"
+  | "enhancing"
+  | "neutral"
+  | "context_only";
+
+/** rumoured is shown, tagged — early warning of a threatened strike is the point. */
+export type EventConfidence = "confirmed" | "likely" | "rumoured";
+
+/**
+ * An event as produced by the LLM, BEFORE deterministic matching. `blastSurface`
+ * uses the shared VulnerabilityTag vocabulary so it set-intersects with each
+ * link's `vulnerabilityProfile`.
+ */
+export interface CandidateEvent {
+  name: string;
+  /** Events span days (§5b). */
+  dates: DateRange;
+  /** May be a hub, not the destination. */
+  location: string;
+  eventType: EventType;
+  blastSurface: VulnerabilityTag[];
+  /** Is the event physically in the destination itself? (drop-rule input) */
+  inDestination: boolean;
+  /** The LLM's degree judgment; the matcher refines it (§5c). */
+  severityHint?: EventSeverity;
+  // human layer (LLM-written)
+  headline: string;
+  why: string;
+  /** Mitigation; only for disruptive/enhancing (§5b). */
+  whatToDo?: string;
+  confidence: EventConfidence;
+  source?: SectionSource;
+}
+
+/** A candidate after deterministic matching against the access chain (§5c). */
+export interface MatchedEvent extends CandidateEvent {
+  /** Names of the chain links this event hits (set intersection). */
+  chainLinksTouched: string[];
+  timing: EventTiming;
+  severity: EventSeverity;
+}
+
+/** The events card (the differentiator). Single shape, adaptive. */
+export interface EventsSection {
+  kind: "events";
+  status: "ok" | "unavailable";
+  /** Always present, one line. */
+  headline: string;
+  /** Failure / empty explanation when status !== "ok". */
+  detail?: string;
+  /** The generated access chain (§5a) — shown as supporting context. */
+  chain: AccessChainLink[];
+  /** Matched, ordered events; empty when nothing is consequential. */
+  events: MatchedEvent[];
+  confidence: Confidence;
+}
+
 /** The (growing) briefing payload returned by /api/briefing. */
 export interface Briefing {
   place: ResolvedPlace | null;
+  /** Events first — the differentiator, often most decision-relevant (§9.3). */
+  events: EventsSection;
   weather: WeatherSection;
 }

@@ -145,7 +145,14 @@ A `fragility` score is derivable later and could scale warning tone. Not in MVP.
   - `political` = summits / G7 / elections
 
 **Consequence assessment (the core)**
-- `blast_surface` multi-select: `airport · roads · ferries_sea · local_transport · lodging · regional_prices · crowds_general`
+- `blast_surface` multi-select — the surfaces an event disrupts. Uses the **same
+  vocabulary as a link's `vulnerability_profile`** (`strikes · crowd_surge ·
+  road_closure · sea_traffic · weather_sensitive · capacity_peak · security_ops ·
+  price_surge`), so the §5c match is a literal set intersection. *(Reconciled: an
+  earlier draft listed a separate word-list here — `airport · roads · ferries_sea
+  …` — that could not set-intersect with `vulnerability_profile`; the worked
+  example in §5c, where a regatta's `sea_traffic` hits the ferry link, only works
+  on the shared vocabulary.)*
 - `chain_links_touched` — which access-chain link(s) it hits. Empty + not in-destination → drop.
 - `timing` enum: `travel_day · leisure_day · adjacent` + concrete date(s)
 - `severity` enum (**4 levels**): `disruptive · enhancing · neutral · context_only`
