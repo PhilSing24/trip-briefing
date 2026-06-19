@@ -230,6 +230,39 @@ export interface SafetySection {
   confidence: Confidence;
 }
 
+// ── Interests (PROJECT_SPEC §6) ─────────────────────────────────────────────
+
+/** One piece of local context — NOT a ranked pick (the guiding principle). */
+export interface InterestItem {
+  name: string;
+  /** What it is / why it's notable — knowledge, not "you should go here". */
+  note: string;
+}
+
+/** Context for one detected interest (food, sport, art, history…). */
+export interface InterestBlock {
+  /** Detected from the free-text, e.g. "food", "hiking". */
+  interest: string;
+  headline?: string;
+  items: InterestItem[];
+  /** Optional briefing-safe practical note ("popular spots book weeks ahead"). */
+  logistics?: string;
+}
+
+/**
+ * Interests card (§6), driven by the free-text box. Knowledge-sourced, no ranked
+ * picks. Adaptive: expands when a matching cue is present, collapses to a line
+ * otherwise.
+ */
+export interface InterestsSection {
+  kind: "interests";
+  status: "ok" | "unavailable";
+  headline: string;
+  detail?: string;
+  /** Empty when no interest cue was given. */
+  interests: InterestBlock[];
+}
+
 /** The (growing) briefing payload returned by /api/briefing. */
 export interface Briefing {
   place: ResolvedPlace | null;
@@ -238,4 +271,5 @@ export interface Briefing {
   weather: WeatherSection;
   safety: SafetySection;
   admin: AdminSection;
+  interests: InterestsSection;
 }

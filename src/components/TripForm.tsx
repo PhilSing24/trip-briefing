@@ -12,6 +12,7 @@ import { WeatherCard } from "@/components/cards/WeatherCard";
 import { EventsCard } from "@/components/cards/EventsCard";
 import { SafetyCard } from "@/components/cards/SafetyCard";
 import { AdminCard } from "@/components/cards/AdminCard";
+import { InterestsCard } from "@/components/cards/InterestsCard";
 
 export function TripForm() {
   const [destination, setDestination] = React.useState("");
@@ -150,12 +151,13 @@ export function TripForm() {
             <WeatherCard section={briefing.weather} />
             <SafetyCard section={briefing.safety} />
             <AdminCard section={briefing.admin} />
+            <InterestsCard section={briefing.interests} />
           </>
         )}
 
         {briefing && (
           <p className="px-1 text-xs text-zinc-400">
-            More sections (safety, interests) arrive in later slices.
+            A one-line verdict summary arrives in a later slice.
           </p>
         )}
       </div>

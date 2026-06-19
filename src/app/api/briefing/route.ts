@@ -8,6 +8,7 @@ import {
   adminUnavailable,
   safetyUnavailable,
 } from "@/lib/entry-safety-llm";
+import { buildInterestsSection, interestsUnavailable } from "@/lib/interests-llm";
 
 /**
  * The single backend entry point (PROJECT_SPEC §8). For this slice it runs one
@@ -39,12 +40,13 @@ export async function POST(req: Request) {
       weather: weatherUnavailable(notFound),
       safety: safetyUnavailable(notFound),
       admin: adminUnavailable(notFound),
+      interests: interestsUnavailable(notFound),
     };
     return NextResponse.json({ briefing });
   }
 
   // Run the tools in parallel; each degrades gracefully on its own.
-  const [events, weather, entry] = await Promise.all([
+  const [events, weather, entry, interests] = await Promise.all([
     buildEventsSection({
       place,
       when: body.when,
@@ -69,6 +71,11 @@ export async function POST(req: Request) {
         e instanceof Error ? e.message : "Entry/safety service is unavailable.";
       return { admin: adminUnavailable(reason), safety: safetyUnavailable(reason) };
     }),
+    buildInterestsSection({ place, notes: body.notes ?? "" }).catch((e) =>
+      interestsUnavailable(
+        e instanceof Error ? e.message : "Interests service is unavailable.",
+      ),
+    ),
   ]);
 
   const briefing: Briefing = {
@@ -77,6 +84,7 @@ export async function POST(req: Request) {
     weather,
     safety: entry.safety,
     admin: entry.admin,
+    interests,
   };
   return NextResponse.json({ briefing });
 }
