@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { type TripRequest, summarizeTrip } from "@/lib/trip";
+import type { Briefing } from "@/lib/sections";
+import { WeatherCard } from "@/components/cards/WeatherCard";
 
 export function TripForm() {
   const [destination, setDestination] = React.useState("");
@@ -19,6 +21,9 @@ export function TripForm() {
 
   const [errors, setErrors] = React.useState<string[]>([]);
   const [submitted, setSubmitted] = React.useState<TripRequest | null>(null);
+  const [briefing, setBriefing] = React.useState<Briefing | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   function setChildCount(next: number) {
     setChildrenAges((prev) => {
@@ -65,37 +70,85 @@ export function TripForm() {
     return { request, errors: [] };
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const { request, errors: errs } = build();
     setErrors(errs);
-    if (request) setSubmitted(request);
+    if (!request) return;
+
+    setSubmitted(request);
+    setBriefing(null);
+    setFetchError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/briefing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      if (!res.ok) throw new Error(`Briefing request failed (${res.status})`);
+      const data = (await res.json()) as { briefing: Briefing };
+      setBriefing(data.briefing);
+    } catch (err) {
+      setFetchError(
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   // After submit: form collapses to a summary bar; the briefing renders below
   // (PROJECT_SPEC §2). The briefing itself arrives in later slices.
   if (submitted) {
+    const place = briefing?.place;
+    const placeLine = place
+      ? [place.name, place.admin1, place.country].filter(Boolean).join(", ")
+      : null;
+
     return (
       <div className="w-full max-w-2xl space-y-6">
         <div className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white px-4 py-3 shadow-sm">
           <p className="text-sm text-zinc-700">{summarizeTrip(submitted)}</p>
-          <Button variant="ghost" size="sm" onClick={() => setSubmitted(null)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSubmitted(null);
+              setBriefing(null);
+              setFetchError(null);
+            }}
+          >
             ✎ Edit
           </Button>
         </div>
 
-        <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-6">
-          <p className="text-sm font-medium text-zinc-700">
-            Briefing will render here.
+        {placeLine && (
+          <p className="px-1 text-sm text-zinc-500">
+            Briefing for <span className="text-zinc-800">{placeLine}</span>
           </p>
-          <p className="mt-1 text-sm text-zinc-500">
-            The synthesis pipeline (weather → events → safety → admin →
-            interests) lands in the next slices. Captured request:
+        )}
+
+        {loading && (
+          <div className="rounded-xl border border-zinc-200 bg-white p-5 text-sm text-zinc-500 shadow-sm">
+            Gathering your briefing…
+          </div>
+        )}
+
+        {fetchError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+            {fetchError}
+          </div>
+        )}
+
+        {briefing && <WeatherCard section={briefing.weather} />}
+
+        {briefing && (
+          <p className="px-1 text-xs text-zinc-400">
+            More sections (events, safety, admin, interests) arrive in later
+            slices.
           </p>
-          <pre className="mt-4 overflow-x-auto rounded-md bg-zinc-900 p-4 text-xs leading-relaxed text-zinc-100">
-            {JSON.stringify(submitted, null, 2)}
-          </pre>
-        </div>
+        )}
       </div>
     );
   }
