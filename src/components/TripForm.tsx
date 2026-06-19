@@ -10,6 +10,7 @@ import { type TripRequest, summarizeTrip } from "@/lib/trip";
 import type { Briefing } from "@/lib/sections";
 import { WeatherCard } from "@/components/cards/WeatherCard";
 import { EventsCard } from "@/components/cards/EventsCard";
+import { AdminCard } from "@/components/cards/AdminCard";
 
 export function TripForm() {
   const [destination, setDestination] = React.useState("");
@@ -146,12 +147,13 @@ export function TripForm() {
           <>
             <EventsCard section={briefing.events} />
             <WeatherCard section={briefing.weather} />
+            <AdminCard section={briefing.admin} />
           </>
         )}
 
         {briefing && (
           <p className="px-1 text-xs text-zinc-400">
-            More sections (safety, admin, interests) arrive in later slices.
+            More sections (safety, interests) arrive in later slices.
           </p>
         )}
       </div>

@@ -3,6 +3,7 @@ import type { TripRequest } from "@/lib/trip";
 import type { Briefing } from "@/lib/sections";
 import { geocode, getWeather, weatherUnavailable } from "@/lib/weather";
 import { buildEventsSection, eventsUnavailable } from "@/lib/events-llm";
+import { buildAdminSection, adminUnavailable } from "@/lib/admin-llm";
 
 /**
  * The single backend entry point (PROJECT_SPEC §8). For this slice it runs one
@@ -32,12 +33,13 @@ export async function POST(req: Request) {
       place: null,
       events: eventsUnavailable(notFound),
       weather: weatherUnavailable(notFound),
+      admin: adminUnavailable(notFound),
     };
     return NextResponse.json({ briefing });
   }
 
   // Run the tools in parallel; each degrades gracefully on its own.
-  const [events, weather] = await Promise.all([
+  const [events, weather, admin] = await Promise.all([
     buildEventsSection({
       place,
       when: body.when,
@@ -53,8 +55,17 @@ export async function POST(req: Request) {
         e instanceof Error ? e.message : "Weather service is unavailable.",
       ),
     ),
+    buildAdminSection({
+      place,
+      when: body.when,
+      nationalities: body.nationalities ?? [],
+    }).catch((e) =>
+      adminUnavailable(
+        e instanceof Error ? e.message : "Entry-requirements service is unavailable.",
+      ),
+    ),
   ]);
 
-  const briefing: Briefing = { place, events, weather };
+  const briefing: Briefing = { place, events, weather, admin };
   return NextResponse.json({ briefing });
 }

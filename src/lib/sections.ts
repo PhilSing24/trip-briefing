@@ -166,10 +166,49 @@ export interface EventsSection {
   confidence: Confidence;
 }
 
+// ── Admin / entry requirements (PROJECT_SPEC §6) ────────────────────────────
+
+/** Mirrors advisory/immigration status tiers. */
+export type VisaStatus =
+  | "visa_free"
+  | "visa_on_arrival"
+  | "evisa"
+  | "visa_required"
+  | "eta_required";
+
+/** Entry requirements for one nationality (mixed groups give several). */
+export interface NationalityAdmin {
+  nationality: string;
+  visaStatus: VisaStatus;
+  /** e.g. "90 days within any 180-day period". */
+  maxStay: string;
+  /** Concrete actions; drives the "N to-do" badge. */
+  toDos: string[];
+  /** e.g. "Passport valid for 3+ months beyond departure". */
+  passportValidity: string;
+}
+
+/**
+ * Admin card (§6). Adaptive: collapses when every nationality is visa-free with
+ * zero to-dos; expands per-nationality when there are actions. Source is always
+ * cited (official government source).
+ */
+export interface AdminSection {
+  kind: "admin";
+  status: "ok" | "unavailable";
+  headline: string;
+  detail?: string;
+  perNationality: NationalityAdmin[];
+  /** Always an official government source. */
+  source: SectionSource;
+  confidence: Confidence;
+}
+
 /** The (growing) briefing payload returned by /api/briefing. */
 export interface Briefing {
   place: ResolvedPlace | null;
   /** Events first — the differentiator, often most decision-relevant (§9.3). */
   events: EventsSection;
   weather: WeatherSection;
+  admin: AdminSection;
 }
