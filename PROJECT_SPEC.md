@@ -89,8 +89,8 @@ collapse to a one-liner when it doesn't).
 ### Section order
 1. **Destination header** — image + restated request
 2. **Verdict** — 1–2 sentence synthesis (LLM); what a rushed user reads and nothing else
-3. **Weather**
-4. **Events** ← the differentiator
+3. **Events** ← the differentiator (promoted above weather — see §9.3)
+4. **Weather**
 5. **Safety / geopolitical risk**
 6. **Admin / entry requirements**
 7. **Interests** (food, sport, art… — driven by free-text)
@@ -302,8 +302,10 @@ Next.js form
 2. **Graceful degradation** — what each card shows when its source is down/empty. A briefing
    with *silent* gaps is worse than one that says "couldn't check." Define empty/failure
    states per card (they also need to look intentional in the future design).
-3. **Card order confirmation** — events may deserve to sit above weather given it's the
-   differentiator and often most decision-relevant.
+3. ~~**Card order confirmation**~~ — **DECIDED:** events sit **above** weather. As the
+   differentiator it is often the most decision-relevant section (a travel-day strike
+   outranks the forecast). Order is now: Verdict → Events → Weather → Safety → Admin →
+   Interests. (Verdict line still pending the multi-section synthesis slice.)
 
 ---
 
