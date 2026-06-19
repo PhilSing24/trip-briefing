@@ -263,9 +263,23 @@ export interface InterestsSection {
   interests: InterestBlock[];
 }
 
-/** The (growing) briefing payload returned by /api/briefing. */
+// ── Verdict (PROJECT_SPEC §4) ───────────────────────────────────────────────
+
+/**
+ * The verdict line — a 1–2 sentence synthesis a rushed user reads instead of
+ * the whole briefing. Written last, over the other sections' signals.
+ */
+export interface VerdictSection {
+  kind: "verdict";
+  status: "ok" | "unavailable";
+  text: string;
+}
+
+/** The briefing payload returned by /api/briefing. */
 export interface Briefing {
   place: ResolvedPlace | null;
+  /** Read first; written last (synthesises the sections below). */
+  verdict: VerdictSection;
   /** Events first — the differentiator, often most decision-relevant (§9.3). */
   events: EventsSection;
   weather: WeatherSection;

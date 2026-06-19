@@ -147,6 +147,16 @@ export function TripForm() {
 
         {briefing && (
           <>
+            {briefing.verdict.status === "ok" && briefing.verdict.text && (
+              <div className="rounded-xl border border-zinc-900 bg-zinc-900 p-5 text-zinc-50 shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                  Verdict
+                </p>
+                <p className="mt-1 text-base font-medium leading-relaxed">
+                  {briefing.verdict.text}
+                </p>
+              </div>
+            )}
             <EventsCard section={briefing.events} />
             <WeatherCard section={briefing.weather} />
             <SafetyCard section={briefing.safety} />
@@ -155,11 +165,6 @@ export function TripForm() {
           </>
         )}
 
-        {briefing && (
-          <p className="px-1 text-xs text-zinc-400">
-            A one-line verdict summary arrives in a later slice.
-          </p>
-        )}
       </div>
     );
   }
