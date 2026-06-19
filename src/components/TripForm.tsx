@@ -6,36 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import {
-  type TripRequest,
-  type WhenMode,
-  summarizeTrip,
-} from "@/lib/trip";
-
-const WHEN_OPTIONS: { mode: WhenMode; label: string; hint: string }[] = [
-  {
-    mode: "exact",
-    label: "Exact dates",
-    hint: "Live forecast if travel is within ~16 days, otherwise typical seasonal weather.",
-  },
-  {
-    mode: "month",
-    label: "Just a month",
-    hint: "Typical seasonal weather and a month-wide event window.",
-  },
-  {
-    mode: "flexible",
-    label: "Flexible",
-    hint: "Typical seasonal weather and a wide event window.",
-  },
-];
+import { type TripRequest, summarizeTrip } from "@/lib/trip";
 
 export function TripForm() {
   const [destination, setDestination] = React.useState("");
-  const [whenMode, setWhenMode] = React.useState<WhenMode>("exact");
-  const [exactStart, setExactStart] = React.useState("");
-  const [exactEnd, setExactEnd] = React.useState("");
-  const [month, setMonth] = React.useState("");
+  const [startDate, setStartDate] = React.useState("");
+  const [endDate, setEndDate] = React.useState("");
   const [adults, setAdults] = React.useState(2);
   const [childrenAges, setChildrenAges] = React.useState<number[]>([]);
   const [nationalities, setNationalities] = React.useState<string[]>([""]);
@@ -43,8 +19,6 @@ export function TripForm() {
 
   const [errors, setErrors] = React.useState<string[]>([]);
   const [submitted, setSubmitted] = React.useState<TripRequest | null>(null);
-
-  const activeHint = WHEN_OPTIONS.find((o) => o.mode === whenMode)!.hint;
 
   function setChildCount(next: number) {
     setChildrenAges((prev) => {
@@ -68,15 +42,10 @@ export function TripForm() {
 
     if (!destination.trim()) errs.push("Enter a destination.");
 
-    if (whenMode === "exact") {
-      if (!exactStart || !exactEnd) {
-        errs.push("Pick both a start and end date.");
-      } else if (exactEnd < exactStart) {
-        errs.push("The end date can't be before the start date.");
-      }
-    }
-    if (whenMode === "month" && !month) {
-      errs.push("Pick a month.");
+    if (!startDate || !endDate) {
+      errs.push("Pick both a start and end date.");
+    } else if (endDate < startDate) {
+      errs.push("The end date can't be before the start date.");
     }
 
     const cleanNats = nationalities.map((n) => n.trim()).filter(Boolean);
@@ -88,13 +57,7 @@ export function TripForm() {
 
     const request: TripRequest = {
       destination: destination.trim(),
-      when: {
-        mode: whenMode,
-        ...(whenMode === "exact"
-          ? { exact: { start: exactStart, end: exactEnd } }
-          : {}),
-        ...(whenMode === "month" ? { month } : {}),
-      },
+      when: { start: startDate, end: endDate },
       party: { adults, childrenAges },
       nationalities: cleanNats,
       notes: notes.trim(),
@@ -166,59 +129,37 @@ export function TripForm() {
         </p>
       </div>
 
-      {/* When — the load-bearing toggle */}
+      {/* Dates */}
       <div className="space-y-1.5">
-        <Label>When</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {WHEN_OPTIONS.map((opt) => (
-            <Button
-              key={opt.mode}
-              variant={whenMode === opt.mode ? "primary" : "outline"}
-              onClick={() => setWhenMode(opt.mode)}
-            >
-              {opt.label}
-            </Button>
-          ))}
-        </div>
-
-        {whenMode === "exact" && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <div className="space-y-1">
-              <Label htmlFor="start" className="text-xs text-zinc-500">
-                Start
-              </Label>
-              <Input
-                id="start"
-                type="date"
-                value={exactStart}
-                onChange={(e) => setExactStart(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="end" className="text-xs text-zinc-500">
-                End
-              </Label>
-              <Input
-                id="end"
-                type="date"
-                value={exactEnd}
-                onChange={(e) => setExactEnd(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-
-        {whenMode === "month" && (
-          <div className="pt-1">
+        <Label>Dates</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="start" className="text-xs text-zinc-500">
+              Start
+            </Label>
             <Input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
+              id="start"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
-        )}
-
-        <p className="text-xs text-zinc-400">{activeHint}</p>
+          <div className="space-y-1">
+            <Label htmlFor="end" className="text-xs text-zinc-500">
+              End
+            </Label>
+            <Input
+              id="end"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-zinc-400">
+          Weather shows a live forecast within ~16 days, otherwise typical
+          seasonal conditions.
+        </p>
       </div>
 
       {/* Party */}

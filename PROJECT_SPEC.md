@@ -57,14 +57,17 @@ Structured form (not a chatbox). Rule: **only ask for an input when a section co
 | Field | Type | Feeds |
 |---|---|---|
 | Destination | text + autocomplete (resolves to a real, disambiguated place) | weather, events, safety, admin, interests |
-| When | toggle: `exact dates` / `just a month` / `flexible` + picker | weather *mode*, events |
+| When | date range (start + end) | weather *mode*, events |
 | Party | steppers: # adults, # children **+ children's ages** | events suitability, admin |
 | Nationality / passport | text (allow multiple for mixed groups) | admin |
 | Anything else? | optional free-text | **interests card** + flavours verdict & event ranking |
 | ~~Travelling from~~ | *deferred* — add with the cost layer | transport cost |
 
-The **When toggle** is load-bearing: it selects the weather data strategy
-(forecast vs climate normals) and the event search window.
+The **dates** are load-bearing: they select the weather data strategy
+(forecast vs climate normals — *derived from how far out the trip is*, ~16 days)
+and the event search window. (An earlier `exact / month / flexible` toggle was
+collapsed to a single date range; proximity, not an explicit mode, now decides
+the weather strategy.)
 
 The **free-text box** is not mere flavour — it *drives the interests card* and
 *re-weights events* (see §5). It pays off twice.
