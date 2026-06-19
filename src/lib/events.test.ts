@@ -103,12 +103,26 @@ describe("computeTiming", () => {
   });
 });
 
-describe("shouldDrop", () => {
-  it("drops an event that touches nothing and is not in-destination", () => {
-    expect(shouldDrop(event({ inDestination: false }), [])).toBe(true);
+describe("shouldDrop (clear-impact gate)", () => {
+  it("drops an event with no stated impact, even in-destination", () => {
+    expect(
+      shouldDrop(event({ blastSurface: [], inDestination: true }), []),
+    ).toBe(true);
   });
-  it("keeps an in-destination event even with no chain links touched", () => {
-    expect(shouldDrop(event({ inDestination: true }), [])).toBe(false);
+  it("drops an impactful event that touches nothing and is not in-destination", () => {
+    expect(
+      shouldDrop(event({ blastSurface: ["crowd_surge"], inDestination: false }), []),
+    ).toBe(true);
+  });
+  it("keeps an in-destination event that has a real impact", () => {
+    expect(
+      shouldDrop(event({ blastSurface: ["crowd_surge"], inDestination: true }), []),
+    ).toBe(false);
+  });
+  it("keeps an impactful event that touches a chain link", () => {
+    expect(
+      shouldDrop(event({ blastSurface: ["sea_traffic"] }), ["Ferry crossing"]),
+    ).toBe(false);
   });
 });
 
@@ -155,7 +169,7 @@ describe("matchEvents — the worked example (§5c)", () => {
     });
     const inTownFestival = event({
       name: "Capri festival",
-      blastSurface: [],
+      blastSurface: ["crowd_surge"], // real footprint in town → clears the gate
       inDestination: true,
       dates: { start: "2026-07-24", end: "2026-07-24" },
       severityHint: "enhancing",

@@ -55,13 +55,17 @@ export function computeTiming(
 }
 
 /**
- * Drop rule (§5b): an event that touches no chain link AND is not in the
- * destination itself has no consequence for this trip — drop it.
+ * Inclusion gate: an event earns a place only if it has a CLEAR IMPACT on this
+ * trip — positive or negative. That means a stated consequence (non-empty
+ * blastSurface) that actually lands somewhere: on a chain link, or in the
+ * destination itself. A pleasant-but-inconsequential event (no footprint on the
+ * trip) is discovery, not a briefing item — drop it, even if it is in-destination.
  */
 export function shouldDrop(
   event: CandidateEvent,
   touched: string[],
 ): boolean {
+  if (event.blastSurface.length === 0) return true; // no impact → not for us
   return touched.length === 0 && !event.inDestination;
 }
 

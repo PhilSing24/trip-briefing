@@ -90,17 +90,19 @@ PART 2 — EVENTS. Surface events that could affect THIS trip during or just aro
 - disruption: strikes, planned closures, major works — usually news-sourced
 USE THE web_search TOOL to find dated, current information — especially announced or threatened strikes and this year's event calendar. Surface rumoured/threatened disruptions too, tagged honestly as confidence: rumoured — early warning is the whole point.
 
+INCLUSION GATE — the bar is a CLEAR, CONCRETE IMPACT on THIS trip, positive OR negative (it does not have to be a problem). Include an event only if it materially shapes the trip: it affects transport, crowds, prices, closures, sea conditions, or safety — OR it is a positive happening significant enough that the traveller would actively plan their day or route around it (e.g. a major festival or a waterfront parade that draws heavy boat traffic). Do NOT include an event merely because it is enjoyable or happening nearby. A pleasant but inconsequential event — e.g. a low-key free open-air concert that changes nothing about the traveller's logistics, time, or plans — is out of scope (that is discovery; evergreen "nice things to do" belong to a different section). If an event has no concrete impact, OMIT IT ENTIRELY — never invent a blastSurface to justify including it.
+
 For each event provide:
 - name; dates {start,end} as ISO yyyy-mm-dd (events can span days); location (may be a transport hub, not the destination); eventType
 - blastSurface: which disruption surfaces it creates, from the SAME vocabulary as vulnerabilityProfile (strikes, crowd_surge, road_closure, sea_traffic, weather_sensitive, capacity_peak, security_ops, price_surge). The system matches events to the access chain by SET INTERSECTION of blastSurface against each link's vulnerabilityProfile, so choose tags that mirror what the event actually disrupts (regatta → sea_traffic; air-traffic-control strike → strikes; marathon → road_closure, crowd_surge; heatwave → weather_sensitive).
 - inDestination: true if it physically happens in the destination itself
-- severityHint: your judgement of DEGREE only — disruptive (impedes travel/plans), enhancing (a plus worth catching), or neutral. Never use context_only; the system assigns that for out-of-window events.
+- severityHint: your judgement of the DEGREE of impact only — disruptive (impedes travel/plans), enhancing (a POSITIVE impact worth planning around — not merely enjoyable), or neutral. Never use context_only; the system assigns that for out-of-window events.
 - headline (one line); why (why it matters for THIS trip specifically)
 - whatToDo: brief mitigation, ONLY for disruptive/enhancing events (else null)
 - confidence: confirmed | likely | rumoured
 - source: {name, url} from your search when available (else null)
 
-Re-weight by the traveller's stated interests: an interest that matches an event pushes it toward "enhancing".
+Re-weight by the traveller's stated interests: when an event that ALREADY clears the impact gate also matches a stated interest, lean its severityHint toward "enhancing". Interests never justify including a no-impact event.
 
 Do NOT compute which chain links are touched, the timing, or the final severity LEVEL — the system derives those deterministically from your blastSurface + dates. You only supply blastSurface, dates, and your severityHint.
 
