@@ -19,6 +19,41 @@ export interface SectionSource {
 /** Weather data strategy — the key badge (PROJECT_SPEC §6). */
 export type WeatherMode = "forecast" | "climate_normal";
 
+/** Coarse sky condition, derived from the WMO weather code — drives the icon. */
+export type WeatherCondition =
+  | "clear"
+  | "partly"
+  | "cloudy"
+  | "rain"
+  | "snow"
+  | "fog"
+  | "thunder";
+
+/** One forecast day, rendered as a square in the weather card (forecast mode only). */
+export interface WeatherDay {
+  /** ISO yyyy-mm-dd. */
+  date: string;
+  /** Pre-formatted weekday for display, e.g. "Tuesday" (server has the tz). */
+  weekday: string;
+  condition: WeatherCondition;
+  tempHigh: number;
+  tempLow: number;
+  /** Max precipitation probability for the day, % — forecast only. */
+  precipProb?: number;
+}
+
+/**
+ * How the forecast compares to the seasonal norm for this place + dates. The
+ * whole point: 32°C is unremarkable in Bangkok but extraordinary in Reykjavík —
+ * a bare number can't say that, this signal can. Forecast mode only.
+ */
+export type TempAnomaly =
+  | "much_colder"
+  | "colder"
+  | "normal"
+  | "warmer"
+  | "much_warmer";
+
 /**
  * Weather card (PROJECT_SPEC §6). Single shape, adaptive: weather always
  * expands. `status: "unavailable"` is the graceful-degradation state — a card
@@ -36,6 +71,12 @@ export interface WeatherSection {
   tempHigh?: number;
   /** °C, representative low across the trip window. */
   tempLow?: number;
+  /** °C, the seasonal-normal high for these dates — the baseline anomaly is judged against. */
+  tempHighNormal?: number;
+  /** How the forecast high compares to the seasonal norm (forecast mode only). */
+  anomaly?: TempAnomaly;
+  /** Per-day breakdown for the first few forecast days (forecast mode only). */
+  days?: WeatherDay[];
   /** °C, coastal only — omitted inland. */
   seaTemp?: number;
   /** Human phrase, e.g. "Mostly dry" / "Showers likely". */

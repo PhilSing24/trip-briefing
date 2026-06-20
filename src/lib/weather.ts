@@ -11,6 +11,9 @@ import net from "node:net";
 import type {
   Confidence,
   ResolvedPlace,
+  TempAnomaly,
+  WeatherCondition,
+  WeatherDay,
   WeatherMode,
   WeatherSection,
 } from "@/lib/sections";
@@ -56,14 +59,24 @@ export async function getWeather(
   when: DateRange,
 ): Promise<WeatherSection> {
   const mode = pickMode(when.start);
-  const core =
-    mode === "forecast"
-      ? await getForecast(place, when)
-      : await getClimateNormal(place, when);
 
-  const seaTemp = await getSeaTemp(place, when, mode).catch(() => undefined);
+  if (mode === "forecast") {
+    // Pull the climate normal in parallel too: it's the baseline that tells us
+    // whether the forecast is ordinary or remarkable for this place + season.
+    // Best-effort — a missing baseline just drops the "unusual for…" framing.
+    const [core, normal, seaTemp] = await Promise.all([
+      getForecast(place, when),
+      getClimateNormal(place, when).catch(() => null),
+      getSeaTemp(place, when, mode).catch(() => undefined),
+    ]);
+    return assemble(place, when, mode, core, seaTemp, normal);
+  }
 
-  return assemble(place, when, mode, core, seaTemp);
+  const [core, seaTemp] = await Promise.all([
+    getClimateNormal(place, when),
+    getSeaTemp(place, when, mode).catch(() => undefined),
+  ]);
+  return assemble(place, when, mode, core, seaTemp, null);
 }
 
 interface CoreWeather {
@@ -73,6 +86,8 @@ interface CoreWeather {
   precipMm: number;
   /** mean daily precipitation probability (forecast only) */
   precipProb?: number;
+  /** per-day breakdown for the first few forecast days (forecast only) */
+  days?: WeatherDay[];
 }
 
 function pickMode(startISO: string): WeatherMode {
@@ -95,7 +110,7 @@ async function getForecast(
     latitude: String(place.latitude),
     longitude: String(place.longitude),
     daily:
-      "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max",
+      "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max",
     timezone: "auto",
     start_date: startDate,
     end_date: endDate,
@@ -107,7 +122,34 @@ async function getForecast(
     tempLow: mean(daily.temperature_2m_min),
     precipMm: mean(daily.precipitation_sum),
     precipProb: mean(daily.precipitation_probability_max),
+    days: buildDays(daily),
   };
+}
+
+/** First up-to-3 forecast days as squares: weekday + condition icon + high/low. */
+function buildDays(daily: Record<string, unknown[]>): WeatherDay[] {
+  const times = (daily.time as unknown as string[]) ?? [];
+  const codes = daily.weather_code ?? [];
+  const maxes = daily.temperature_2m_max ?? [];
+  const mins = daily.temperature_2m_min ?? [];
+  const probs = daily.precipitation_probability_max ?? [];
+
+  const days: WeatherDay[] = [];
+  for (let i = 0; i < times.length && days.length < 3; i++) {
+    const high = maxes[i];
+    const low = mins[i];
+    if (typeof high !== "number" || typeof low !== "number") continue;
+    const prob = probs[i];
+    days.push({
+      date: times[i],
+      weekday: weekdayOf(times[i]),
+      condition: wmoToCondition(typeof codes[i] === "number" ? (codes[i] as number) : 3),
+      tempHigh: round(high),
+      tempLow: round(low),
+      precipProb: typeof prob === "number" ? round(prob) : undefined,
+    });
+  }
+  return days;
 }
 
 async function getClimateNormal(
@@ -196,21 +238,31 @@ function assemble(
   mode: WeatherMode,
   core: CoreWeather,
   seaTemp: number | undefined,
+  normal: CoreWeather | null,
 ): WeatherSection {
   const tempHigh = round(core.tempHigh);
   const tempLow = round(core.tempLow);
   const rainSignal = rainPhrase(core, mode);
   const confidence: Confidence = mode === "forecast" ? "high" : "moderate";
 
+  // In forecast mode, judge the forecast against the seasonal norm so the
+  // headline can say whether this is ordinary or remarkable for the place.
+  const tempHighNormal =
+    mode === "forecast" && normal && Number.isFinite(normal.tempHigh)
+      ? round(normal.tempHigh)
+      : undefined;
+  const anomaly =
+    tempHighNormal !== undefined ? classifyAnomaly(tempHigh, tempHighNormal) : undefined;
+
   const warmth = warmthWord(tempHigh);
   const headline =
     mode === "forecast"
-      ? `${warmth} — highs around ${tempHigh}°C, lows ${tempLow}°C. ${rainSignal}.`
+      ? `${warmth} — highs around ${tempHigh}°C, lows ${tempLow}°C. ${anomalyPhrase(anomaly, place, when, tempHigh, tempHighNormal)}`
       : `Typically ${warmth.toLowerCase()} — highs near ${tempHigh}°C, lows ${tempLow}°C. ${rainSignal}.`;
 
   const detailParts = [
     mode === "forecast"
-      ? `Live forecast for ${fmtRange(when)}.`
+      ? `Live forecast for ${fmtRange(when)}. ${rainSignal}.`
       : `Based on ${CLIMATE_YEARS}-year averages for ${fmtRange(when)}; not a forecast.`,
   ];
   if (seaTemp !== undefined) {
@@ -225,11 +277,52 @@ function assemble(
     mode,
     tempHigh,
     tempLow,
+    tempHighNormal,
+    anomaly,
+    days: core.days,
     seaTemp,
     rainSignal,
     confidence,
     source: SOURCE,
   };
+}
+
+/** Forecast-high vs seasonal-norm → an anomaly band. ±3°C is the "normal" margin. */
+function classifyAnomaly(high: number, normalHigh: number): TempAnomaly {
+  const delta = high - normalHigh;
+  if (delta >= 6) return "much_warmer";
+  if (delta >= 3) return "warmer";
+  if (delta <= -6) return "much_colder";
+  if (delta <= -3) return "colder";
+  return "normal";
+}
+
+/**
+ * The contextual line: 32°C means nothing without knowing it's 12° above the
+ * Reykjavík norm. Falls back to nothing if there's no baseline to compare to.
+ */
+function anomalyPhrase(
+  anomaly: TempAnomaly | undefined,
+  place: ResolvedPlace,
+  when: DateRange,
+  high: number,
+  normalHigh: number | undefined,
+): string {
+  if (!anomaly || normalHigh === undefined) return "";
+  const month = monthName(when.start);
+  const delta = Math.abs(high - normalHigh);
+  switch (anomaly) {
+    case "much_warmer":
+      return `Unusually warm for ${place.name} in ${month} — about ${delta}° above the seasonal norm.`;
+    case "warmer":
+      return `A touch warmer than usual for ${place.name} in ${month}.`;
+    case "much_colder":
+      return `Unusually cold for ${place.name} in ${month} — about ${delta}° below the seasonal norm.`;
+    case "colder":
+      return `A touch cooler than usual for ${place.name} in ${month}.`;
+    default:
+      return `About typical for ${place.name} in ${month}.`;
+  }
 }
 
 /** Graceful-degradation card when the destination or data can't be fetched. */
@@ -256,6 +349,30 @@ function rainPhrase(core: CoreWeather, mode: WeatherMode): string {
   if (core.precipMm >= 5) return "Often wet this time of year";
   if (core.precipMm >= 1) return "Occasional rain is typical";
   return "Typically dry";
+}
+
+/** WMO weather interpretation code → coarse condition for the icon. */
+function wmoToCondition(code: number): WeatherCondition {
+  if (code === 0) return "clear";
+  if (code === 1 || code === 2) return "partly";
+  if (code === 3) return "cloudy";
+  if (code === 45 || code === 48) return "fog";
+  if (code >= 95) return "thunder";
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
+  return "cloudy";
+}
+
+function weekdayOf(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+    weekday: "long",
+  });
+}
+
+function monthName(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+    month: "long",
+  });
 }
 
 function warmthWord(tempHigh: number): string {
