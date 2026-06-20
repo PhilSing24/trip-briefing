@@ -2,9 +2,11 @@
  * Weather tool — Open-Meteo (free, no key). Server-only.
  *
  * Strategy (PROJECT_SPEC §6): a live FORECAST when the trip starts within the
- * forecast horizon (~16 days), otherwise a CLIMATE NORMAL averaged from the
- * historical archive over recent years. The mode is always labelled so an
- * average never reads as a forecast.
+ * forecast horizon, otherwise a CLIMATE NORMAL averaged from the historical
+ * archive over recent years. The mode is always labelled so an average never
+ * reads as a forecast. In forecast mode we ALSO surface the climate normal so
+ * the card can say whether the forecast is ordinary or remarkable, and show up
+ * to 5 day-by-day tiles for the forecastable portion of the trip.
  */
 
 import net from "node:net";
@@ -30,7 +32,9 @@ const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 const ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive";
 const MARINE_URL = "https://marine-api.open-meteo.com/v1/marine";
 
-const FORECAST_HORIZON_DAYS = 16;
+// Open-Meteo's forecast endpoint serves dates only up to today + 15 (it returns
+// 16 daily values counting today). Requesting day +16 is out of range → HTTP 400.
+const FORECAST_HORIZON_DAYS = 15;
 const CLIMATE_YEARS = 10;
 
 const SOURCE = { name: "Open-Meteo", url: "https://open-meteo.com" };
@@ -126,7 +130,7 @@ async function getForecast(
   };
 }
 
-/** First up-to-3 forecast days as squares: weekday + condition icon + high/low. */
+/** First up-to-5 forecast days as squares: weekday + condition icon + high/low. */
 function buildDays(daily: Record<string, unknown[]>): WeatherDay[] {
   const times = (daily.time as unknown as string[]) ?? [];
   const codes = daily.weather_code ?? [];
@@ -135,7 +139,7 @@ function buildDays(daily: Record<string, unknown[]>): WeatherDay[] {
   const probs = daily.precipitation_probability_max ?? [];
 
   const days: WeatherDay[] = [];
-  for (let i = 0; i < times.length && days.length < 3; i++) {
+  for (let i = 0; i < times.length && days.length < 5; i++) {
     const high = maxes[i];
     const low = mins[i];
     if (typeof high !== "number" || typeof low !== "number") continue;
@@ -143,6 +147,7 @@ function buildDays(daily: Record<string, unknown[]>): WeatherDay[] {
     days.push({
       date: times[i],
       weekday: weekdayOf(times[i]),
+      dateShort: dayMonthOf(times[i]),
       condition: wmoToCondition(typeof codes[i] === "number" ? (codes[i] as number) : 3),
       tempHigh: round(high),
       tempLow: round(low),
@@ -251,6 +256,10 @@ function assemble(
     mode === "forecast" && normal && Number.isFinite(normal.tempHigh)
       ? round(normal.tempHigh)
       : undefined;
+  const tempLowNormal =
+    mode === "forecast" && normal && Number.isFinite(normal.tempLow)
+      ? round(normal.tempLow)
+      : undefined;
   const anomaly =
     tempHighNormal !== undefined ? classifyAnomaly(tempHigh, tempHighNormal) : undefined;
 
@@ -278,6 +287,7 @@ function assemble(
     tempHigh,
     tempLow,
     tempHighNormal,
+    tempLowNormal,
     anomaly,
     days: core.days,
     seaTemp,
@@ -372,6 +382,13 @@ function weekdayOf(iso: string): string {
 function monthName(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
     month: "long",
+  });
+}
+
+function dayMonthOf(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
   });
 }
 

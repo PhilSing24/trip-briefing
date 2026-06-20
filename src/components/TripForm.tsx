@@ -147,21 +147,33 @@ export function TripForm() {
 
         {briefing && (
           <>
-            {briefing.verdict.status === "ok" && briefing.verdict.text && (
-              <div className="rounded-xl border border-zinc-900 bg-zinc-900 p-5 text-zinc-50 shadow-sm">
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                  Verdict
-                </p>
-                <p className="mt-1 text-base font-medium leading-relaxed">
-                  {briefing.verdict.text}
-                </p>
-              </div>
+            {briefing.weatherOnly && (
+              <p className="text-xs text-amber-600">
+                Weather-only mode — other sections are disabled
+                (BRIEFING_WEATHER_ONLY).
+              </p>
             )}
-            <EventsCard section={briefing.events} />
+            {!briefing.weatherOnly &&
+              briefing.verdict.status === "ok" &&
+              briefing.verdict.text && (
+                <div className="rounded-xl border border-zinc-900 bg-zinc-900 p-5 text-zinc-50 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                    Verdict
+                  </p>
+                  <p className="mt-1 text-base font-medium leading-relaxed">
+                    {briefing.verdict.text}
+                  </p>
+                </div>
+              )}
+            {!briefing.weatherOnly && <EventsCard section={briefing.events} />}
             <WeatherCard section={briefing.weather} />
-            <SafetyCard section={briefing.safety} />
-            <AdminCard section={briefing.admin} />
-            <InterestsCard section={briefing.interests} />
+            {!briefing.weatherOnly && (
+              <>
+                <SafetyCard section={briefing.safety} />
+                <AdminCard section={briefing.admin} />
+                <InterestsCard section={briefing.interests} />
+              </>
+            )}
           </>
         )}
 

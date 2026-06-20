@@ -46,6 +46,13 @@ export function WeatherCard({ section }: { section: WeatherSection }) {
         {section.tempLow !== undefined && (
           <Stat label="Low" value={`${section.tempLow}°C`} />
         )}
+        {section.tempHighNormal !== undefined &&
+          section.tempLowNormal !== undefined && (
+            <Stat
+              label="Seasonal avg"
+              value={`${section.tempHighNormal}° / ${section.tempLowNormal}°`}
+            />
+          )}
         {section.seaTemp !== undefined && (
           <Stat label="Sea" value={`${section.seaTemp}°C`} />
         )}
@@ -56,18 +63,28 @@ export function WeatherCard({ section }: { section: WeatherSection }) {
   );
 }
 
-/** A single forecast day: weekday, condition glyph, high/low. */
+/** Wet conditions always show a rain chance, so a rainy glyph is never bare. */
+function isWet(condition: WeatherCondition): boolean {
+  return condition === "rain" || condition === "snow" || condition === "thunder";
+}
+
+/** A single forecast day: date, condition glyph, high/low, rain chance. */
 function DaySquare({ day }: { day: WeatherDay }) {
+  // Show the rain chance whenever the glyph is wet (so it's never a bare rain
+  // cloud), or whenever the chance is high enough to mention on a drier day.
+  const showRain =
+    day.precipProb !== undefined && (isWet(day.condition) || day.precipProb >= 30);
+
   return (
     <div className="flex w-24 flex-col items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-3 text-center">
-      <span className="text-xs font-medium text-zinc-600">
-        {day.weekday.slice(0, 3)}
+      <span className="whitespace-nowrap text-xs font-medium text-zinc-600">
+        {day.weekday.slice(0, 3)} {day.dateShort}
       </span>
       <WeatherGlyph condition={day.condition} />
       <span className="text-sm text-zinc-900">
         {day.tempHigh}° <span className="text-zinc-400">/ {day.tempLow}°</span>
       </span>
-      {day.precipProb !== undefined && day.precipProb >= 20 && (
+      {showRain && (
         <span className="text-[11px] text-sky-600">{day.precipProb}% rain</span>
       )}
     </div>

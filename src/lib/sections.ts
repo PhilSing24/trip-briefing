@@ -35,6 +35,8 @@ export interface WeatherDay {
   date: string;
   /** Pre-formatted weekday for display, e.g. "Tuesday" (server has the tz). */
   weekday: string;
+  /** Pre-formatted day + month, e.g. "20 Jun" (server-side for tz correctness). */
+  dateShort: string;
   condition: WeatherCondition;
   tempHigh: number;
   tempLow: number;
@@ -73,6 +75,8 @@ export interface WeatherSection {
   tempLow?: number;
   /** °C, the seasonal-normal high for these dates — the baseline anomaly is judged against. */
   tempHighNormal?: number;
+  /** °C, the seasonal-normal low for these dates — shown alongside the forecast. */
+  tempLowNormal?: number;
   /** How the forecast high compares to the seasonal norm (forecast mode only). */
   anomaly?: TempAnomaly;
   /** Per-day breakdown for the first few forecast days (forecast mode only). */
@@ -319,6 +323,12 @@ export interface VerdictSection {
 /** The briefing payload returned by /api/briefing. */
 export interface Briefing {
   place: ResolvedPlace | null;
+  /**
+   * Dev flag: when set (via BRIEFING_WEATHER_ONLY), only weather is computed and
+   * the UI renders just that card — fast/cheap iteration on the weather tile
+   * without paying for the LLM sections. The other fields carry placeholders.
+   */
+  weatherOnly?: boolean;
   /** Read first; written last (synthesises the sections below). */
   verdict: VerdictSection;
   /** Events first — the differentiator, often most decision-relevant (§9.3). */

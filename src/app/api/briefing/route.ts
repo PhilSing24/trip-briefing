@@ -47,6 +47,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ briefing });
   }
 
+  // Dev shortcut: BRIEFING_WEATHER_ONLY skips the (slow, paid) LLM sections so
+  // the weather card can be iterated on quickly and cheaply. The other sections
+  // get placeholders; the UI hides them when `weatherOnly` is set.
+  if (process.env.BRIEFING_WEATHER_ONLY) {
+    const weather = await getWeather(place, body.when).catch((e) =>
+      weatherUnavailable(
+        e instanceof Error ? e.message : "Weather service is unavailable.",
+      ),
+    );
+    const disabled = "Disabled while iterating on the weather card.";
+    const briefing: Briefing = {
+      place,
+      weatherOnly: true,
+      verdict: verdictUnavailable(),
+      events: eventsUnavailable(disabled),
+      weather,
+      safety: safetyUnavailable(disabled),
+      admin: adminUnavailable(disabled),
+      interests: interestsUnavailable(disabled),
+    };
+    return NextResponse.json({ briefing });
+  }
+
   // Run the tools in parallel; each degrades gracefully on its own.
   const [events, weather, entry, interests] = await Promise.all([
     buildEventsSection({

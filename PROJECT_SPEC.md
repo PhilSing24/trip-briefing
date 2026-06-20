@@ -64,10 +64,11 @@ Structured form (not a chatbox). Rule: **only ask for an input when a section co
 | ~~Travelling from~~ | *deferred* — add with the cost layer | transport cost |
 
 The **dates** are load-bearing: they select the weather data strategy
-(forecast vs climate normals — *derived from how far out the trip is*, ~16 days)
-and the event search window. (An earlier `exact / month / flexible` toggle was
-collapsed to a single date range; proximity, not an explicit mode, now decides
-the weather strategy.)
+(forecast vs climate normals — *derived from how far out the trip is*; the live
+forecast reaches **15 days** ahead, Open-Meteo's actual limit) and the event
+search window. (An earlier `exact / month / flexible` toggle was collapsed to a
+single date range; proximity, not an explicit mode, now decides the weather
+strategy.)
 
 The **free-text box** is not mere flavour — it *drives the interests card* and
 *re-weights events* (see §5). It pays off twice.
@@ -194,8 +195,19 @@ that event upward (toward enhancing) and lets the verdict connect them.
 ## 6. Remaining cards (field-level)
 
 ### Weather
-- `mode` enum: `forecast · climate_normal` (the key badge; forecast only within ~16 days)
+- `mode` enum: `forecast · climate_normal` (the key badge; forecast only within
+  **15 days** — Open-Meteo's forecast reach)
 - `temp_high`, `temp_low`
+- `temp_high_normal`, `temp_low_normal` — the seasonal average for the trip dates.
+  In forecast mode this is **always shown alongside** the forecast, and the
+  anomaly is judged against it ("unusually warm for X in June").
+- `anomaly` enum: `much_colder · colder · normal · warmer · much_warmer` — how the
+  forecast compares to the seasonal norm. A bare "32°C" can't say whether that's
+  ordinary (Bangkok) or remarkable (Reykjavík); this can. Forecast mode only.
+- `days[]` — up to **5** day-by-day tiles (weekday + date, condition icon, high/low,
+  rain chance) for the forecastable portion of the trip: `min(5, trip length, days
+  left in the 15-day horizon)`. A trip starting past the horizon shows none and
+  falls back to the seasonal average for the whole window.
 - `sea_temp` (conditional — coastal only)
 - `rain_signal`
 - `headline`
