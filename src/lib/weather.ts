@@ -39,14 +39,17 @@ const CLIMATE_YEARS = 10;
 
 const SOURCE = { name: "Open-Meteo", url: "https://open-meteo.com" };
 
-/** Resolve free-text destination → a disambiguated place. Null if not found. */
-export async function geocode(destination: string): Promise<ResolvedPlace | null> {
-  const url = `${GEOCODE_URL}?name=${encodeURIComponent(destination)}&count=1&language=en&format=json`;
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const data = await res.json();
-  const hit = data?.results?.[0];
-  if (!hit) return null;
+interface GeocodeHit {
+  name: string;
+  country?: string;
+  country_code?: string;
+  admin1?: string;
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+}
+
+function mapHit(hit: GeocodeHit): ResolvedPlace {
   return {
     name: hit.name,
     country: hit.country,
@@ -56,6 +59,31 @@ export async function geocode(destination: string): Promise<ResolvedPlace | null
     longitude: hit.longitude,
     timezone: hit.timezone,
   };
+}
+
+/** Resolve free-text destination → a disambiguated place. Null if not found. */
+export async function geocode(destination: string): Promise<ResolvedPlace | null> {
+  const url = `${GEOCODE_URL}?name=${encodeURIComponent(destination)}&count=1&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const hit = data?.results?.[0];
+  return hit ? mapHit(hit) : null;
+}
+
+/** Search disambiguated places for autocomplete (most-relevant first). */
+export async function searchPlaces(
+  query: string,
+  count = 6,
+): Promise<ResolvedPlace[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const url = `${GEOCODE_URL}?name=${encodeURIComponent(q)}&count=${count}&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const hits: GeocodeHit[] = data?.results ?? [];
+  return hits.map(mapHit);
 }
 
 /** Build the weather section for a resolved place + date range. */

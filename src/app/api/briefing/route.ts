@@ -31,7 +31,10 @@ export async function POST(req: Request) {
     );
   }
 
-  const place = await geocode(body.destination).catch(() => null);
+  // The form passes a resolved place when the user picked one from autocomplete;
+  // otherwise fall back to geocoding the typed text.
+  const place =
+    body.place ?? (await geocode(body.destination).catch(() => null));
 
   if (!place) {
     const notFound = `Couldn't find "${body.destination}". Try a more specific place name.`;

@@ -7,6 +7,8 @@
  * layer, so it is absent here.
  */
 
+import type { ResolvedPlace } from "@/lib/sections";
+
 export interface DateRange {
   /** ISO yyyy-mm-dd */
   start: string;
@@ -21,8 +23,13 @@ export interface PartyValue {
 }
 
 export interface TripRequest {
-  /** Free text for now; an autocomplete place-resolver lands in a later slice. */
+  /** The typed/selected destination text (always present, for display + fallback). */
   destination: string;
+  /**
+   * The disambiguated place chosen from autocomplete, when the user picked one.
+   * Present → the backend uses it directly and skips geocoding the free text.
+   */
+  place?: ResolvedPlace;
   /** Travel dates; weather mode (forecast vs. seasonal) is derived from proximity. */
   when: DateRange;
   party: PartyValue;

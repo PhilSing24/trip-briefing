@@ -7,7 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { type TripRequest, summarizeTrip } from "@/lib/trip";
-import type { Briefing } from "@/lib/sections";
+import type { Briefing, ResolvedPlace } from "@/lib/sections";
+import {
+  DestinationAutocomplete,
+  formatPlaceLabel,
+} from "@/components/DestinationAutocomplete";
 import { WeatherCard } from "@/components/cards/WeatherCard";
 import { EventsCard } from "@/components/cards/EventsCard";
 import { SafetyCard } from "@/components/cards/SafetyCard";
@@ -16,6 +20,9 @@ import { InterestsCard } from "@/components/cards/InterestsCard";
 
 export function TripForm() {
   const [destination, setDestination] = React.useState("");
+  const [resolvedPlace, setResolvedPlace] = React.useState<ResolvedPlace | null>(
+    null,
+  );
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
   const [adults, setAdults] = React.useState(2);
@@ -66,6 +73,7 @@ export function TripForm() {
 
     const request: TripRequest = {
       destination: destination.trim(),
+      place: resolvedPlace ?? undefined,
       when: { start: startDate, end: endDate },
       party: { adults, childrenAges },
       nationalities: cleanNats,
@@ -198,15 +206,22 @@ export function TripForm() {
       {/* Destination */}
       <div className="space-y-1.5">
         <Label htmlFor="destination">Destination</Label>
-        <Input
+        <DestinationAutocomplete
           id="destination"
           value={destination}
-          onChange={(e) => setDestination(e.target.value)}
+          onChange={(text) => {
+            setDestination(text);
+            // Editing the text invalidates a previously-picked place.
+            setResolvedPlace(null);
+          }}
+          onSelect={(place) => {
+            setResolvedPlace(place);
+            setDestination(formatPlaceLabel(place));
+          }}
           placeholder="e.g. Capri, Italy"
-          autoComplete="off"
         />
         <p className="text-xs text-zinc-400">
-          Place autocomplete is coming in a later slice — free text for now.
+          Start typing and pick a place to disambiguate it.
         </p>
       </div>
 
