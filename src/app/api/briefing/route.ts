@@ -10,6 +10,7 @@ import {
 } from "@/lib/entry-safety-llm";
 import { buildInterestsSection, interestsUnavailable } from "@/lib/interests-llm";
 import { buildSummary, summaryUnavailable } from "@/lib/summary-llm";
+import { serviceUnavailableReason } from "@/lib/service-error";
 
 /**
  * The single backend entry point (PROJECT_SPEC §8). For this slice it runs one
@@ -55,9 +56,7 @@ export async function POST(req: Request) {
   // get placeholders; the UI hides them when `weatherOnly` is set.
   if (process.env.BRIEFING_WEATHER_ONLY) {
     const weather = await getWeather(place, body.when).catch((e) =>
-      weatherUnavailable(
-        e instanceof Error ? e.message : "Weather service is unavailable.",
-      ),
+      weatherUnavailable(serviceUnavailableReason(e, "weather")),
     );
     const disabled = "Disabled while iterating on the weather card.";
     const briefing: Briefing = {
@@ -80,29 +79,20 @@ export async function POST(req: Request) {
       when: body.when,
       party: body.party,
       notes: body.notes ?? "",
-    }).catch((e) =>
-      eventsUnavailable(
-        e instanceof Error ? e.message : "Events service is unavailable.",
-      ),
-    ),
+    }).catch((e) => eventsUnavailable(serviceUnavailableReason(e, "events"))),
     getWeather(place, body.when).catch((e) =>
-      weatherUnavailable(
-        e instanceof Error ? e.message : "Weather service is unavailable.",
-      ),
+      weatherUnavailable(serviceUnavailableReason(e, "weather")),
     ),
     buildEntryAndSafety({
       place,
       when: body.when,
       nationalities: body.nationalities ?? [],
     }).catch((e) => {
-      const reason =
-        e instanceof Error ? e.message : "Entry/safety service is unavailable.";
+      const reason = serviceUnavailableReason(e, "entry & safety");
       return { admin: adminUnavailable(reason), safety: safetyUnavailable(reason) };
     }),
     buildInterestsSection({ place, notes: body.notes ?? "" }).catch((e) =>
-      interestsUnavailable(
-        e instanceof Error ? e.message : "Interests service is unavailable.",
-      ),
+      interestsUnavailable(serviceUnavailableReason(e, "interests")),
     ),
   ]);
 
