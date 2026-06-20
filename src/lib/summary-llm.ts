@@ -17,10 +17,16 @@ import type {
   InterestsSection,
   SafetySection,
   SummarySection,
+  VisaStatus,
   WeatherSection,
 } from "@/lib/sections";
 
 const MODEL = "claude-sonnet-4-6";
+
+/** Entry statuses that must be sorted before travel — the only ones the summary flags. */
+function needsAdvanceEntry(status: VisaStatus): boolean {
+  return status === "evisa" || status === "visa_required" || status === "eta_required";
+}
 
 const SYSTEM_PROMPT = `You write the SUMMARY for a pre-trip briefing: 2 to 4 plain sentences a rushed traveller reads INSTEAD of the whole briefing. You are given short summaries of each section (weather, events, safety, entry/admin, interests).
 
@@ -31,6 +37,8 @@ TONE CONSISTENCY (this is the most important rule). First find the most serious 
 - If nothing is pressing, it is correct to be genuinely positive — do not manufacture caveats.
 
 COVER, DON'T LIST. Weave the relevant points into flowing prose; do not enumerate every section, and skip any section with nothing to say. Be specific (name the strike or festival, the advisory level, the key to-do), but brief.
+
+WHAT TO LEAVE OUT. People are going on holiday — do not pad the summary with non-issues. Only mention SAFETY when there is an elevated advisory (caution / reconsider / do-not-travel); for a normal, safe destination, say nothing about safety. Only mention ENTRY/ADMIN when there is a real barrier that must be arranged before travel (an eVisa, visa, or ETA); for visa-free entry or routine to-dos, say nothing. A clean bill on safety or admin is simply omitted, never stated as reassurance. (You will usually only be handed these lines when they ARE notable — if a section is absent below, it had nothing worth surfacing.)
 
 Do not repeat the destination or the dates (already shown to the user). No preamble ("Here is…", "Overall…"), no bullet points, no markdown. Just the sentence(s).`;
 
@@ -91,15 +99,24 @@ function composeSignals(s: Sections): string {
     lines.push(`Weather: ${s.weather.headline} [${s.weather.mode}]`);
   }
 
-  if (s.safety.status === "ok") {
+  // Safety only matters to the summary when it is NOT normal — a safe place is
+  // the default a holidaymaker assumes; don't restate it.
+  if (s.safety.status === "ok" && s.safety.level !== "normal") {
     lines.push(`Safety: level=${s.safety.level} — ${s.safety.headline}`);
   }
 
+  // Admin only matters when entry must be ARRANGED ahead (eVisa/visa/ETA).
+  // Visa-free entry and routine to-dos live in the card, not the summary.
   if (s.admin.status === "ok") {
-    const visas = s.admin.perNationality
-      .map((p) => `${p.nationality}: ${p.visaStatus}`)
-      .join(", ");
-    lines.push(`Entry: ${s.admin.headline}${visas ? ` (${visas})` : ""}`);
+    const barriers = s.admin.perNationality.filter((p) =>
+      needsAdvanceEntry(p.visaStatus),
+    );
+    if (barriers.length > 0) {
+      const visas = barriers
+        .map((p) => `${p.nationality}: ${p.visaStatus}`)
+        .join(", ");
+      lines.push(`Entry: must be arranged before travel — ${visas}`);
+    }
   }
 
   if (s.interests.status === "ok" && s.interests.interests.length > 0) {
@@ -132,7 +149,10 @@ function deterministicSummary(s: Sections): string {
     return `Watch out for ${disruptive.name} on a travel day — plan around it. See the events section.`;
   }
 
-  if (s.admin.status === "ok" && s.admin.perNationality.some((p) => p.toDos.length > 0)) {
+  if (
+    s.admin.status === "ok" &&
+    s.admin.perNationality.some((p) => needsAdvanceEntry(p.visaStatus))
+  ) {
     return `${s.admin.headline} Otherwise nothing major flagged for your dates.`;
   }
 
