@@ -114,7 +114,7 @@ async function getForecast(
     latitude: String(place.latitude),
     longitude: String(place.longitude),
     daily:
-      "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max",
+      "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunshine_duration,daylight_duration",
     timezone: "auto",
     start_date: startDate,
     end_date: endDate,
@@ -137,21 +137,33 @@ function buildDays(daily: Record<string, unknown[]>): WeatherDay[] {
   const maxes = daily.temperature_2m_max ?? [];
   const mins = daily.temperature_2m_min ?? [];
   const probs = daily.precipitation_probability_max ?? [];
+  const sunshine = daily.sunshine_duration ?? [];
+  const daylight = daily.daylight_duration ?? [];
 
   const days: WeatherDay[] = [];
   for (let i = 0; i < times.length && days.length < 5; i++) {
     const high = maxes[i];
     const low = mins[i];
     if (typeof high !== "number" || typeof low !== "number") continue;
-    const prob = probs[i];
+    const prob = typeof probs[i] === "number" ? round(probs[i] as number) : undefined;
+    const sun = sunshine[i];
+    const day = daylight[i];
+    const sunFraction =
+      typeof sun === "number" && typeof day === "number" && day > 0
+        ? sun / day
+        : undefined;
     days.push({
       date: times[i],
       weekday: weekdayOf(times[i]),
       dateShort: dayMonthOf(times[i]),
-      condition: wmoToCondition(typeof codes[i] === "number" ? (codes[i] as number) : 3),
+      condition: deriveCondition(
+        typeof codes[i] === "number" ? (codes[i] as number) : 3,
+        prob,
+        sunFraction,
+      ),
       tempHigh: round(high),
       tempLow: round(low),
-      precipProb: typeof prob === "number" ? round(prob) : undefined,
+      precipProb: prob,
     });
   }
   return days;
@@ -361,15 +373,47 @@ function rainPhrase(core: CoreWeather, mode: WeatherMode): string {
   return "Typically dry";
 }
 
-/** WMO weather interpretation code → coarse condition for the icon. */
-function wmoToCondition(code: number): WeatherCondition {
+/** A WMO code that means precipitation (drizzle/rain/snow/showers/thunder). */
+function isPrecipCode(code: number): boolean {
+  return (
+    (code >= 51 && code <= 67) || (code >= 71 && code <= 86) || code >= 95
+  );
+}
+
+/** Minimum rain probability before a precip code earns a wet glyph. */
+const WET_PROB_THRESHOLD = 30;
+
+/**
+ * Coarse sky condition for the icon. The daily `weather_code` is pessimistic —
+ * it reports the day's *most significant* weather, so a near-cloudless 40°C day
+ * comes back as "overcast" and a single passing shower flips a sunny day to
+ * "showers". So we only trust it for the *type* of wet weather (and gate that on
+ * a real rain chance); for dry days we let actual sunshine decide how cloudy it
+ * looks.
+ */
+function deriveCondition(
+  code: number,
+  precipProb: number | undefined,
+  sunFraction: number | undefined,
+): WeatherCondition {
+  if (code === 45 || code === 48) return "fog";
+
+  if (isPrecipCode(code) && (precipProb ?? 0) >= WET_PROB_THRESHOLD) {
+    if (code >= 95) return "thunder";
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
+    return "rain";
+  }
+
+  // Dry day: sunshine fraction (sunshine ÷ daylight) is the honest sky signal.
+  if (sunFraction !== undefined) {
+    if (sunFraction >= 0.7) return "clear";
+    if (sunFraction >= 0.4) return "partly";
+    return "cloudy";
+  }
+
+  // No sunshine data — fall back to the coarse code.
   if (code === 0) return "clear";
   if (code === 1 || code === 2) return "partly";
-  if (code === 3) return "cloudy";
-  if (code === 45 || code === 48) return "fog";
-  if (code >= 95) return "thunder";
-  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
   return "cloudy";
 }
 
