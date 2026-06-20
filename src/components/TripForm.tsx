@@ -154,21 +154,21 @@ export function TripForm() {
               </p>
             )}
             {!briefing.weatherOnly &&
-              briefing.verdict.status === "ok" &&
-              briefing.verdict.text && (
+              briefing.summary.status === "ok" &&
+              briefing.summary.text && (
                 <div className="rounded-xl border border-zinc-900 bg-zinc-900 p-5 text-zinc-50 shadow-sm">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                    Verdict
+                    Summary
                   </p>
                   <p className="mt-1 text-base font-medium leading-relaxed">
-                    {briefing.verdict.text}
+                    {briefing.summary.text}
                   </p>
                 </div>
               )}
-            {!briefing.weatherOnly && <EventsCard section={briefing.events} />}
             <WeatherCard section={briefing.weather} />
             {!briefing.weatherOnly && (
               <>
+                <EventsCard section={briefing.events} />
                 <SafetyCard section={briefing.safety} />
                 <AdminCard section={briefing.admin} />
                 <InterestsCard section={briefing.interests} />

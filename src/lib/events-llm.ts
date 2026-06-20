@@ -20,6 +20,7 @@ import type {
 } from "@/lib/sections";
 import type { DateRange, PartyValue } from "@/lib/trip";
 import { matchEvents } from "@/lib/events";
+import { getPublicHolidays, type PublicHoliday } from "@/lib/holidays";
 
 const MODEL = "claude-opus-4-8";
 
@@ -92,6 +93,8 @@ USE THE web_search TOOL to find dated, current information — especially announ
 
 INCLUSION GATE — the bar is a CLEAR, CONCRETE IMPACT on THIS trip, positive OR negative (it does not have to be a problem). Include an event only if it materially shapes the trip: it affects transport, crowds, prices, closures, sea conditions, or safety — OR it is a positive happening significant enough that the traveller would actively plan their day or route around it (e.g. a major festival or a waterfront parade that draws heavy boat traffic). Do NOT include an event merely because it is enjoyable or happening nearby. A pleasant but inconsequential event — e.g. a low-key free open-air concert that changes nothing about the traveller's logistics, time, or plans — is out of scope (that is discovery; evergreen "nice things to do" belong to a different section). If an event has no concrete impact, OMIT IT ENTIRELY — never invent a blastSurface to justify including it.
 
+PUBLIC HOLIDAYS. You are also given the official public holidays that fall in or near the window. Treat a holiday as a candidate event ONLY when it materially shapes THIS trip — widespread shop/bank/pharmacy closures, holiday crowds at attractions or the coast, packed or reduced public transport, or surge prices. Choose blastSurface from what it actually disrupts (holiday crowds → crowd_surge; packed/reduced ferries or transport → capacity_peak; higher prices → price_surge) and put the closure detail in why/whatToDo (e.g. "most shops, banks and pharmacies shut — stock up the day before"). Use eventType religious or cultural. A NATIONWIDE holiday bites harder than a regional one — weight a regional holiday down and say so. How much actually closes varies a lot by country (near-total in much of central/northern Europe; lighter in the south except the biggest holidays such as Ferragosto) — judge realistically. A holiday that changes nothing for this traveller is out of scope — omit it; do not list a holiday just because it exists.
+
 DISCRETE & DATED — an event must be a SPECIFIC, TIME-BOUNDED OCCURRENCE with real start/end dates that overlap or border the trip window: a named strike, an announced closure or major works, a specific festival / match / concert / parade, a summit, an election. It happens ON DATES — it is not a standing condition. DO NOT dress up ambient or perpetual conditions as events: general "regional tensions", ongoing economic or energy conditions, generically high prices, everyday traffic/congestion, baseline crime, or typical seasonal weather are NOT events. Standing safety risk belongs to the safety section; typical seasonal conditions belong to the weather section — do not duplicate them here. Only treat weather as an event when there is a SPECIFIC, DATED official warning (a named storm, or an issued heat/flood red-alert for those dates) — never "it is typically hot". If you cannot state concrete dates for a specific occurrence, it is not an event — omit it.
 
 For each event provide:
@@ -120,12 +123,25 @@ function partyLabel(party: PartyValue): string {
   return `${adults}, children aged ${party.childrenAges.join(", ")}`;
 }
 
+/** Format the holiday facts handed to the model (empty → an explicit "none"). */
+function holidayLines(holidays: PublicHoliday[]): string {
+  if (holidays.length === 0) return "Public holidays in window: none";
+  const items = holidays
+    .map(
+      (h) =>
+        `${h.date} ${h.name}${h.localName && h.localName !== h.name ? ` (${h.localName})` : ""} — ${h.nationwide ? "nationwide" : "regional"}`,
+    )
+    .join("; ");
+  return `Public holidays in window: ${items}`;
+}
+
 /** Call Claude for the access chain + candidate events. */
 export async function generateEventsAndChain(args: {
   place: ResolvedPlace;
   when: DateRange;
   party: PartyValue;
   notes: string;
+  holidays: PublicHoliday[];
 }): Promise<{ chain: AccessChainLink[]; candidates: CandidateEvent[] }> {
   const client = new Anthropic(); // reads ANTHROPIC_API_KEY
 
@@ -134,6 +150,7 @@ export async function generateEventsAndChain(args: {
     `Travel dates: ${args.when.start} to ${args.when.end}`,
     `Party: ${partyLabel(args.party)}`,
     `Interests / notes: ${args.notes.trim() || "none given"}`,
+    holidayLines(args.holidays),
   ].join("\n");
 
   const res = await client.messages.parse({
@@ -180,7 +197,9 @@ export async function buildEventsSection(args: {
   party: PartyValue;
   notes: string;
 }): Promise<EventsSection> {
-  const { chain, candidates } = await generateEventsAndChain(args);
+  // Public holidays are best-effort context for the synthesis — never block on them.
+  const holidays = await getPublicHolidays(args.place, args.when).catch(() => []);
+  const { chain, candidates } = await generateEventsAndChain({ ...args, holidays });
   const events = matchEvents(candidates, chain, args.when);
 
   const chainConfidence: Confidence = chain.some((l) => l.confidence === "low")

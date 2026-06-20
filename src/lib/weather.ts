@@ -50,6 +50,7 @@ export async function geocode(destination: string): Promise<ResolvedPlace | null
   return {
     name: hit.name,
     country: hit.country,
+    countryCode: hit.country_code,
     admin1: hit.admin1,
     latitude: hit.latitude,
     longitude: hit.longitude,

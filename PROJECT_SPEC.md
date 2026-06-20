@@ -60,7 +60,7 @@ Structured form (not a chatbox). Rule: **only ask for an input when a section co
 | When | date range (start + end) | weather *mode*, events |
 | Party | steppers: # adults, # children **+ children's ages** | events suitability, admin |
 | Nationality / passport | text (allow multiple for mixed groups) | admin |
-| Anything else? | optional free-text | **interests card** + flavours verdict & event ranking |
+| Anything else? | optional free-text | **interests card** + flavours summary & event ranking |
 | ~~Travelling from~~ | *deferred* — add with the cost layer | transport cost |
 
 The **dates** are load-bearing: they select the weather data strategy
@@ -89,9 +89,13 @@ collapse to a one-liner when it doesn't).
 
 ### Section order
 1. **Destination header** — image + restated request
-2. **Verdict** — 1–2 sentence synthesis (LLM); what a rushed user reads and nothing else
-3. **Events** ← the differentiator (promoted above weather — see §9.3)
-4. **Weather**
+2. **Summary** — 2–4 sentence synthesis (LLM) that COVERS every section that has
+   something to say, in ONE coherent tone: the most serious signal sets the
+   register and an upbeat phrase never stands unqualified next to a warning (so
+   no "great beach weather" beside a safety alert). What a rushed user reads
+   instead of the whole briefing. (Replaces the earlier one-line "verdict".)
+3. **Weather**
+4. **Events** ← the differentiator (now below weather — see §9.3)
 5. **Safety / geopolitical risk**
 6. **Admin / entry requirements**
 7. **Interests** (food, sport, art… — driven by free-text)
@@ -179,16 +183,25 @@ Distance is at most a weak input, never the decision.
 Worked example: a regatta in Amalfi (~50km away) scores HIGH because its blast_surface
 (sea_traffic) hits the `ferry_crossing` link on the `travel_day`. A distance filter misses it.
 
-### 5d. Two source types feed events
+### 5d. Source types feed events
 - **Cultural-event feeds** (festivals, sport, concerts): e.g. Ticketmaster Discovery,
   PredictHQ, local tourism calendars, + LLM knowledge of recurring annual events.
 - **Disruption / news feeds** (strikes, closures, works): different sources — news,
   transport-operator / government feeds. The strike case proved this second type is needed.
+- **Public holidays** (Nager.Date — free, no key; gives date, local name, nationwide
+  vs regional). A holiday is dated and consequence-bearing — closed shops/banks,
+  holiday crowds, packed transport, surge prices — so it lives in **events**, not a
+  separate card. The API supplies the *fact*; the synthesis pass judges whether it
+  materially affects the trip and writes the closure/crowd detail into the human
+  layer. Its `blast_surface` uses the existing vocabulary (`crowd_surge`,
+  `capacity_peak`, `price_surge`); "shops closed" stays a `why`/`what_to_do` note
+  rather than a new surface tag. Only surfaced when it actually bites this trip
+  (nationwide weighted above regional).
 
 ### 5e. Events × Interests linkage
 Events owns anything **dated and consequence-bearing**. Interests owns **evergreen** context.
 No duplication. A dated F1 race lives in events; an "I love sport" free-text cue *re-weights*
-that event upward (toward enhancing) and lets the verdict connect them.
+that event upward (toward enhancing) and lets the summary connect them.
 
 ---
 
@@ -274,7 +287,7 @@ Next.js form
     → + access-chain lookup/generation for the destination
     → + (later) cost-DB lookup
   → ONE LLM synthesis pass:
-       - writes the verdict line
+       - writes the summary (covers all sections, one coherent tone)
        - matches events to the access chain & sets severity
        - decides each card's expand/collapse state + writes headlines
        - sets signals (confidence/severity/mode)
@@ -301,6 +314,7 @@ Next.js form
 - Weather: Open-Meteo (free; forecast + climate normals).
 - Cultural events: Ticketmaster Discovery / PredictHQ + tourism calendars + LLM knowledge.
 - Disruptions: news / transport-operator / government feeds.
+- Public holidays: Nager.Date (free, no key) — folded into events (§5d).
 - Safety: government advisory feeds (State Dept / FCDO).
 - Admin: official government sources, fetched + cited.
 - Places (later, for interests context / costs calibration): Google Places (free credit).
@@ -309,15 +323,19 @@ Next.js form
 
 ## 9. Open items (not yet decided)
 
-1. **Synthesis reliability** — how to prompt the single LLM pass so the verdict + expand/
+1. **Synthesis reliability** — how to prompt the single LLM pass so the summary + expand/
    collapse decisions + event scoring are consistent. (Design the synthesis prompt.)
+   *Summary tone-consistency now addressed:* the worst signal sets the register and a
+   positive never stands unqualified next to a warning (§4). Expand/collapse + event
+   scoring still to firm up.
 2. **Graceful degradation** — what each card shows when its source is down/empty. A briefing
    with *silent* gaps is worse than one that says "couldn't check." Define empty/failure
    states per card (they also need to look intentional in the future design).
-3. ~~**Card order confirmation**~~ — **DECIDED:** events sit **above** weather. As the
-   differentiator it is often the most decision-relevant section (a travel-day strike
-   outranks the forecast). Order is now: Verdict → Events → Weather → Safety → Admin →
-   Interests. (Verdict line still pending the multi-section synthesis slice.)
+3. ~~**Card order confirmation**~~ — **DECIDED (revised):** events now sit **below**
+   weather. The earlier call put events above weather; in practice weather is the
+   first thing most travellers want, and the Summary already front-loads any
+   travel-day disruption, so events follows weather. Order is now:
+   **Summary → Weather → Events → Safety → Admin → Interests.**
 
 ---
 

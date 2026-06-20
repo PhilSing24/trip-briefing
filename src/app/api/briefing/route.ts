@@ -9,7 +9,7 @@ import {
   safetyUnavailable,
 } from "@/lib/entry-safety-llm";
 import { buildInterestsSection, interestsUnavailable } from "@/lib/interests-llm";
-import { buildVerdict, verdictUnavailable } from "@/lib/verdict-llm";
+import { buildSummary, summaryUnavailable } from "@/lib/summary-llm";
 
 /**
  * The single backend entry point (PROJECT_SPEC §8). For this slice it runs one
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const notFound = `Couldn't find "${body.destination}". Try a more specific place name.`;
     const briefing: Briefing = {
       place: null,
-      verdict: verdictUnavailable(),
+      summary: summaryUnavailable(),
       events: eventsUnavailable(notFound),
       weather: weatherUnavailable(notFound),
       safety: safetyUnavailable(notFound),
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     const briefing: Briefing = {
       place,
       weatherOnly: true,
-      verdict: verdictUnavailable(),
+      summary: summaryUnavailable(),
       events: eventsUnavailable(disabled),
       weather,
       safety: safetyUnavailable(disabled),
@@ -103,8 +103,8 @@ export async function POST(req: Request) {
     ),
   ]);
 
-  // Verdict synthesises the sections, so it runs last (a few seconds on Sonnet).
-  const verdict = await buildVerdict({
+  // Summary synthesises the sections, so it runs last (a few seconds on Sonnet).
+  const summary = await buildSummary({
     events,
     weather,
     safety: entry.safety,
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
 
   const briefing: Briefing = {
     place,
-    verdict,
+    summary,
     events,
     weather,
     safety: entry.safety,

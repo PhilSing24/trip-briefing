@@ -1,10 +1,13 @@
 /**
- * Verdict synthesis (PROJECT_SPEC §4). Server-only.
+ * Summary synthesis (PROJECT_SPEC §4). Server-only.
  *
  * A final, cheap pass over the OTHER sections' already-computed signals (not raw
- * data) → one or two plain sentences a rushed traveller reads instead of the
- * whole briefing. Sonnet 4.6, no web search, runs after the parallel section
- * calls. Falls back to a deterministic line if the call fails.
+ * data) → a few plain sentences a rushed traveller reads instead of the whole
+ * briefing. Unlike a one-line verdict it COVERS every section that has something
+ * to say — but in ONE coherent tone: the most serious signal sets the register,
+ * and an upbeat phrase never stands unqualified next to a warning. Sonnet 4.6,
+ * no web search, runs after the parallel section calls. Falls back to a
+ * deterministic line if the call fails.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -13,17 +16,23 @@ import type {
   EventsSection,
   InterestsSection,
   SafetySection,
-  VerdictSection,
+  SummarySection,
   WeatherSection,
 } from "@/lib/sections";
 
 const MODEL = "claude-sonnet-4-6";
 
-const SYSTEM_PROMPT = `You write the VERDICT line for a pre-trip briefing: 1 to 2 plain sentences a rushed traveller reads INSTEAD of the whole briefing. You are given short summaries of each section.
+const SYSTEM_PROMPT = `You write the SUMMARY for a pre-trip briefing: 2 to 4 plain sentences a rushed traveller reads INSTEAD of the whole briefing. You are given short summaries of each section (weather, events, safety, entry/admin, interests).
 
-- Lead with what is most decision-relevant. A disruption on a travel day, an elevated safety advisory, or a visa/authorisation that must be arranged outranks the weather. When nothing is pressing, a calm one-liner about the trip is right.
-- Mention only what matters — do NOT list every section. Be specific but brief (name the strike or festival, the advisory level, the key to-do).
-- Do not repeat the destination or the dates (already shown to the user). No preamble ("Here is…", "Overall…"), no bullet points, no markdown. Just the sentence(s).`;
+GOAL — an at-a-glance read of the WHOLE trip: touch the things that matter across the sections, in order of decision-relevance, in ONE coherent voice.
+
+TONE CONSISTENCY (this is the most important rule). First find the most serious signal: an elevated safety advisory, a disruptive event on a travel day, a blocking entry requirement, or a specific extreme-weather alert. Let it set the tone for the WHOLE summary.
+- If there is a real concern, LEAD with it and stay in that register. You may still note the good parts, but a positive must never stand on its own next to a warning — subordinate it ("the coast and weather are great once you're settled, but…"). NEVER write a breezy line like "great weather, perfect for the beach" beside a safety warning or a serious disruption.
+- If nothing is pressing, it is correct to be genuinely positive — do not manufacture caveats.
+
+COVER, DON'T LIST. Weave the relevant points into flowing prose; do not enumerate every section, and skip any section with nothing to say. Be specific (name the strike or festival, the advisory level, the key to-do), but brief.
+
+Do not repeat the destination or the dates (already shown to the user). No preamble ("Here is…", "Overall…"), no bullet points, no markdown. Just the sentence(s).`;
 
 interface Sections {
   events: EventsSection;
@@ -33,40 +42,40 @@ interface Sections {
   interests: InterestsSection;
 }
 
-/** Synthesise the verdict from the assembled sections. */
-export async function buildVerdict(s: Sections): Promise<VerdictSection> {
-  const summary = composeSummary(s);
+/** Synthesise the summary from the assembled sections. */
+export async function buildSummary(s: Sections): Promise<SummarySection> {
+  const input = composeSignals(s);
 
   try {
     const client = new Anthropic(); // reads ANTHROPIC_API_KEY
     const res = await client.messages.create({
       model: MODEL,
-      max_tokens: 300,
+      max_tokens: 400,
       thinking: { type: "disabled" },
       output_config: { effort: "low" },
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
-      messages: [{ role: "user", content: summary }],
+      messages: [{ role: "user", content: input }],
     });
     const text = res.content
       .filter((b) => b.type === "text")
       .map((b) => (b as { text: string }).text)
       .join(" ")
       .trim();
-    if (!text) throw new Error("empty verdict");
-    return { kind: "verdict", status: "ok", text };
+    if (!text) throw new Error("empty summary");
+    return { kind: "summary", status: "ok", text };
   } catch {
-    return { kind: "verdict", status: "ok", text: deterministicVerdict(s) };
+    return { kind: "summary", status: "ok", text: deterministicSummary(s) };
   }
 }
 
-export function verdictUnavailable(): VerdictSection {
-  return { kind: "verdict", status: "unavailable", text: "" };
+export function summaryUnavailable(): SummarySection {
+  return { kind: "summary", status: "unavailable", text: "" };
 }
 
-/** Compact, signal-only summary of each section for the verdict prompt. */
-function composeSummary(s: Sections): string {
+/** Compact, signal-only summary of each section for the synthesis prompt. */
+function composeSignals(s: Sections): string {
   const lines: string[] = [];
 
   if (s.events.status === "ok" && s.events.events.length > 0) {
@@ -102,8 +111,8 @@ function composeSummary(s: Sections): string {
   return lines.join("\n");
 }
 
-/** Robust fallback when the verdict call fails — pick the strongest signal. */
-function deterministicVerdict(s: Sections): string {
+/** Robust fallback when the synthesis call fails — pick the strongest signal. */
+function deterministicSummary(s: Sections): string {
   if (s.safety.status === "ok" && s.safety.level !== "normal") {
     const label =
       s.safety.level === "do_not_travel"

@@ -93,6 +93,8 @@ export interface WeatherSection {
 export interface ResolvedPlace {
   name: string;
   country?: string;
+  /** ISO 3166-1 alpha-2 (e.g. "IT") — used for the public-holiday lookup. */
+  countryCode?: string;
   admin1?: string;
   latitude: number;
   longitude: number;
@@ -308,14 +310,15 @@ export interface InterestsSection {
   interests: InterestBlock[];
 }
 
-// ── Verdict (PROJECT_SPEC §4) ───────────────────────────────────────────────
+// ── Summary (PROJECT_SPEC §4) ───────────────────────────────────────────────
 
 /**
- * The verdict line — a 1–2 sentence synthesis a rushed user reads instead of
- * the whole briefing. Written last, over the other sections' signals.
+ * The summary — 2–4 plain sentences a rushed user reads instead of the whole
+ * briefing. Written last, over the other sections' signals, in one coherent
+ * tone: a serious concern sets the register and positives never undercut it.
  */
-export interface VerdictSection {
-  kind: "verdict";
+export interface SummarySection {
+  kind: "summary";
   status: "ok" | "unavailable";
   text: string;
 }
@@ -330,8 +333,8 @@ export interface Briefing {
    */
   weatherOnly?: boolean;
   /** Read first; written last (synthesises the sections below). */
-  verdict: VerdictSection;
-  /** Events first — the differentiator, often most decision-relevant (§9.3). */
+  summary: SummarySection;
+  /** Section render order is decided in the UI (§4): Summary → Weather → Events → … */
   events: EventsSection;
   weather: WeatherSection;
   safety: SafetySection;
